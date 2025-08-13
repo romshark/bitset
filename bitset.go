@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	bpw      = 64         // bits per word
-	maxw     = 1<<bpw - 1 // maximum value of a word
-	shift    = 6          // 1<<6 == 64, to be used as multiplier/divisor by 64
-	div64rem = 63         // remainder of division by 64 when n&div64rem is used
+	bpw             = 64         // bits per word
+	maxw     uint64 = 1<<bpw - 1 // maximum value of a word
+	shift           = 6          // 1<<6 == 64, to be used as multiplier/divisor by 64
+	div64rem        = 63         // remainder of division by 64 when n&div64rem is used
 )
 
 // Word is a convenience alias.
@@ -374,8 +374,31 @@ func And(s1, s2 BitSet) BitSet {
 // And keeps only bits set in both *bs and other.
 func (bs *BitSet) And(other BitSet) {
 	minLen := min(len(*bs), len(other))
-	for i := 0; i < minLen; i++ {
-		(*bs)[i] &= other[i]
+	if minLen < 8 {
+		for i := 0; i < minLen; i++ {
+			(*bs)[i] &= other[i]
+		}
+		for i := minLen; i < len(*bs); i++ {
+			(*bs)[i] = 0
+		}
+		bs.trim()
+		return
+	}
+
+	b := (*bs)[:minLen]
+	o := other[:minLen]
+	for ; len(o) > 7; b, o = b[8:], o[8:] {
+		b[0] &= o[0]
+		b[1] &= o[1]
+		b[2] &= o[2]
+		b[3] &= o[3]
+		b[4] &= o[4]
+		b[5] &= o[5]
+		b[6] &= o[6]
+		b[7] &= o[7]
+	}
+	for i := range o {
+		b[i] &= o[i]
 	}
 	for i := minLen; i < len(*bs); i++ {
 		(*bs)[i] = 0
@@ -430,8 +453,28 @@ func (bs *BitSet) Or(other BitSet) {
 	if len(other) > len(*bs) {
 		bs.resize(len(other))
 	}
-	for i := 0; i < len(other); i++ {
-		(*bs)[i] |= other[i]
+	if len(other) < 8 {
+		for i := range other {
+			(*bs)[i] |= other[i]
+		}
+		bs.trim()
+		return
+	}
+
+	b := *bs
+	o := other
+	for ; len(o) > 7; b, o = b[8:], o[8:] {
+		b[0] |= o[0]
+		b[1] |= o[1]
+		b[2] |= o[2]
+		b[3] |= o[3]
+		b[4] |= o[4]
+		b[5] |= o[5]
+		b[6] |= o[6]
+		b[7] |= o[7]
+	}
+	for i := range o {
+		b[i] |= o[i]
 	}
 	bs.trim()
 }
@@ -520,8 +563,28 @@ func AndNot(s1, s2 BitSet) BitSet {
 // AndNot removes bits that are set in other from *bs.
 func (bs *BitSet) AndNot(other BitSet) {
 	minLen := min(len(*bs), len(other))
-	for i := 0; i < minLen; i++ {
-		(*bs)[i] &^= other[i]
+	if minLen < 8 {
+		for i := 0; i < minLen; i++ {
+			(*bs)[i] &^= other[i]
+		}
+		bs.trim()
+		return
+	}
+
+	b := (*bs)[:minLen]
+	o := other[:minLen]
+	for ; len(o) > 7; b, o = b[8:], o[8:] {
+		b[0] &^= o[0]
+		b[1] &^= o[1]
+		b[2] &^= o[2]
+		b[3] &^= o[3]
+		b[4] &^= o[4]
+		b[5] &^= o[5]
+		b[6] &^= o[6]
+		b[7] &^= o[7]
+	}
+	for i := range o {
+		b[i] &^= o[i]
 	}
 	bs.trim()
 }
