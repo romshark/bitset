@@ -30,7 +30,7 @@ func New(n ...int) BitSet {
 	if len(n) == 0 {
 		return BitSet{}
 	}
-	maxElem := n[0]
+	maxElem := -1
 	for _, e := range n {
 		if e > maxElem {
 			maxElem = e
@@ -83,11 +83,10 @@ func (bs BitSet) Equal(other BitSet) bool {
 
 // Subset tells if bs is a subset of other.
 func (bs BitSet) Subset(other BitSet) bool {
-	bsLen := len(bs)
-	if bsLen > len(other) {
+	if len(bs) > len(other) {
 		return false
 	}
-	for i := 0; i < bsLen; i++ {
+	for i := 0; i < len(bs); i++ {
 		if bs[i]&^other[i] != 0 {
 			return false
 		}
@@ -98,11 +97,10 @@ func (bs BitSet) Subset(other BitSet) bool {
 // Max returns the maximum element of the bitset.
 // If the set is empty, -1 is returned.
 func (bs BitSet) Max() int {
-	bsLen := len(bs)
-	if bsLen == 0 {
+	if len(bs) == 0 {
 		return -1
 	}
-	i := bsLen - 1
+	i := len(bs) - 1
 	return (i << shift) + bits.Len64(bs[i]) - 1
 }
 
@@ -123,12 +121,12 @@ func (bs BitSet) Empty() bool {
 // Next returns the next element n, n > m, in the set,
 // or -1 if there is no such element.
 func (bs BitSet) Next(m int) int {
-	l := len(bs)
-	if l == 0 {
+	if len(bs) == 0 {
 		return -1
 	}
+	l := len(bs)
 	if m < 0 {
-		if (bs[0] & 1) != 0 {
+		if bs.Contains(0) {
 			return 0
 		}
 		m = 0
@@ -152,10 +150,10 @@ func (bs BitSet) Next(m int) int {
 // Prev returns the previous element n, n < m, in the set,
 // or -1 if there is no such element.
 func (bs BitSet) Prev(m int) int {
-	l := len(bs)
-	if l == 0 || m <= 0 {
+	if len(bs) == 0 || m <= 0 {
 		return -1
 	}
+	l := len(bs)
 	lastIdx := l - 1
 	maxPossible := (lastIdx << shift) + bits.Len64(bs[lastIdx]) - 1
 	if m > maxPossible {
@@ -218,9 +216,9 @@ func (bs BitSet) VisitAll(do func(n int)) {
 	})
 }
 
-// bitMask returns a bit div64rem with bits set from m to n inclusive, 0 ≤ m ≤ n < bpw.
-func bitMask(m, n int) uint64 {
-	return maxw >> uint(bpw-1-(n-m)) << uint(m)
+// bitMask returns a uint64 with bits set from start to end inclusive, 0 ≤ start ≤ end < bpw.
+func bitMask(start, end int) uint64 {
+	return maxw >> uint(bpw-1-(end-start)) << uint(start)
 }
 
 // nextPow2 returns the smallest power of two p such that p > n, or math.MaxInt if overflow.
@@ -310,7 +308,7 @@ func (bs *BitSet) AddRange(m, n int) {
 		return
 	}
 	m = max(0, m)
-	n-- // now we add from m..n inclusive
+	n-- // convert to inclusive range [m, n]
 	low, high := m>>shift, n>>shift
 	if high >= len(*bs) {
 		bs.resize(high + 1)
@@ -332,7 +330,7 @@ func (bs *BitSet) DeleteRange(m, n int) {
 		return
 	}
 	m = max(0, m)
-	n-- // remove m..n inclusive
+	n-- // convert to inclusive range [m, n]
 	low, high := m>>shift, n>>shift
 	if low >= len(*bs) {
 		return
@@ -356,11 +354,11 @@ func (bs *BitSet) DeleteRange(m, n int) {
 
 // And creates a new set that consists of all elements in both s1 and s2.
 func And(s1, s2 BitSet) BitSet {
-	bsLen, otherLen := len(s1), len(s2)
-	if bsLen == 0 || otherLen == 0 {
+	s1Len, s2Len := len(s1), len(s2)
+	if s1Len == 0 || s2Len == 0 {
 		return BitSet{}
 	}
-	minLen := min(bsLen, otherLen) - 1
+	minLen := min(s1Len, s2Len) - 1
 	for minLen >= 0 && s1[minLen]&s2[minLen] == 0 {
 		minLen--
 	}
