@@ -14,9 +14,6 @@ const (
 	div64rem        = 63         // remainder of division by 64 when n&div64rem is used
 )
 
-// Word is a convenience alias.
-type Word = uint64
-
 // BitSet is a set of non-negative integers represented as a slice of uint64 words,
 // where each bit i in word w corresponds to the integer 64*n + i.
 // The words are kept in ascending order, and the set is trimmed
