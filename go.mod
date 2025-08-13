@@ -1,4 +1,4 @@
-module github.com/KernelPryanic/bitmask
+module github.com/KernelPryanic/bitset
 
 go 1.25
 
