@@ -20,7 +20,7 @@ jobs:
         with:
           go-version: 1.25.0
           check-latest: true
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v8
         env:
           # Go includes VCS data since v1.20 and this
           # can cause problems with CI checkout.
