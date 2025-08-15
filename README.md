@@ -3,7 +3,7 @@
 
 # ⚡ **BitSet** ⚡
 
-This is a simple, though very fast, bitset implementation in Go derived from the [yourbasic/bit](github.com/yourbasic/bit) package.
+This is a simple, though very fast, bitset implementation in Go derived from the [yourbasic/bit](github.com/yourbasic/bit) package. The goal of this package is providing the minimal sufficient set of operations on bitsets, remaining minimalistic and efficient as possible without overengineering.
 
 ## Installation
 
@@ -95,9 +95,9 @@ fmt.Println(set) // Outputs: {1..3 5 7..10}
 
 The following benchmark results show that this bitset implementation is cuurently the fastest one in the core bitset operations and has the least number of allocations, comparing to the most popular solutions. Benchmarks code is in [bitset-bench](https://github.com/KernelPryanic/bitset-bench) repositry.
 
-- Up to 3.17x faster than YourBasic/bit and 2.3x less memory
-- Up to 39.89x faster than RoaringBitmap/roaring and 10.4x less memory
-- Up to 1.7x faster than bits-and-blooms/bitset and 2.5x less memory
+- Up to 3.17x faster than YourBasic/bit (1.61x on average) and 2.3x less memory
+- Up to 39.89x faster than RoaringBitmap/roaring (10.12x on average) and 10.4x less memory
+- Up to 1.7x faster than bits-and-blooms/bitset (1.7x on average) and 2.5x less memory
 
 ```sh
 goos: linux
