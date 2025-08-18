@@ -70,7 +70,7 @@ func (bs BitSet) Equal(other BitSet) bool {
 	if len(bs) != len(other) {
 		return false
 	}
-	for i := 0; i < len(bs); i++ {
+	for i := range bs {
 		if bs[i] != other[i] {
 			return false
 		}
@@ -83,7 +83,7 @@ func (bs BitSet) Subset(other BitSet) bool {
 	if len(bs) > len(other) {
 		return false
 	}
-	for i := 0; i < len(bs); i++ {
+	for i := range bs {
 		if bs[i]&^other[i] != 0 {
 			return false
 		}
@@ -132,8 +132,8 @@ func (bs BitSet) Next(m int) int {
 	if i >= l {
 		return -1
 	}
-	t := 1 + uint(m&div64rem)
-	w := bs[i] >> t << t // zero out bits for numbers ≤ m
+	t := uint(m&div64rem) + 1 // the next bit position after m in the word
+	w := bs[i] >> t << t      // zero out bits for numbers ≤ m
 	for i < l-1 && w == 0 {
 		i++
 		w = bs[i]
@@ -181,9 +181,6 @@ func (bs BitSet) Prev(m int) int {
 func (bs BitSet) Visit(do func(n int) bool) (aborted bool) {
 	for i, l := 0, len(bs); i < l; i++ {
 		w := bs[i]
-		if w == 0 {
-			continue
-		}
 		n := i << shift
 		for w != 0 {
 			b := bits.TrailingZeros64(w)
