@@ -8,14 +8,11 @@ import (
 )
 
 const (
-	bpw      = 64         // bits per word
-	maxw     = 1<<bpw - 1 // maximum value of a word
-	shift    = 6          // 1<<6 == 64, to be used as multiplier/divisor by 64
-	div64rem = 63         // remainder of division by 64 when n&div64rem is used
+	bpw             = 64         // bits per word
+	maxw     uint64 = 1<<bpw - 1 // maximum value of a word
+	shift           = 6          // 1<<6 == 64, to be used as multiplier/divisor by 64
+	div64rem        = 63         // remainder of division by 64 when n&div64rem is used
 )
-
-// Word is a convenience alias.
-type Word = uint64
 
 // BitSet is a set of non-negative integers represented as a slice of uint64 words,
 // where each bit i in word w corresponds to the integer 64*n + i.
@@ -30,7 +27,7 @@ func New(n ...int) BitSet {
 	if len(n) == 0 {
 		return BitSet{}
 	}
-	maxElem := n[0]
+	maxElem := -1
 	for _, e := range n {
 		if e > maxElem {
 			maxElem = e
@@ -73,7 +70,7 @@ func (bs BitSet) Equal(other BitSet) bool {
 	if len(bs) != len(other) {
 		return false
 	}
-	for i := 0; i < len(bs); i++ {
+	for i := range bs {
 		if bs[i] != other[i] {
 			return false
 		}
@@ -83,11 +80,10 @@ func (bs BitSet) Equal(other BitSet) bool {
 
 // Subset tells if bs is a subset of other.
 func (bs BitSet) Subset(other BitSet) bool {
-	bsLen := len(bs)
-	if bsLen > len(other) {
+	if len(bs) > len(other) {
 		return false
 	}
-	for i := 0; i < bsLen; i++ {
+	for i := range bs {
 		if bs[i]&^other[i] != 0 {
 			return false
 		}
@@ -98,11 +94,10 @@ func (bs BitSet) Subset(other BitSet) bool {
 // Max returns the maximum element of the bitset.
 // If the set is empty, -1 is returned.
 func (bs BitSet) Max() int {
-	bsLen := len(bs)
-	if bsLen == 0 {
+	if len(bs) == 0 {
 		return -1
 	}
-	i := bsLen - 1
+	i := len(bs) - 1
 	return (i << shift) + bits.Len64(bs[i]) - 1
 }
 
@@ -123,12 +118,12 @@ func (bs BitSet) Empty() bool {
 // Next returns the next element n, n > m, in the set,
 // or -1 if there is no such element.
 func (bs BitSet) Next(m int) int {
-	l := len(bs)
-	if l == 0 {
+	if len(bs) == 0 {
 		return -1
 	}
+	l := len(bs)
 	if m < 0 {
-		if (bs[0] & 1) != 0 {
+		if bs.Contains(0) {
 			return 0
 		}
 		m = 0
@@ -137,8 +132,8 @@ func (bs BitSet) Next(m int) int {
 	if i >= l {
 		return -1
 	}
-	t := 1 + uint(m&div64rem)
-	w := bs[i] >> t << t // zero out bits for numbers ≤ m
+	t := uint(m&div64rem) + 1 // the next bit position after m in the word
+	w := bs[i] >> t << t      // zero out bits for numbers ≤ m
 	for i < l-1 && w == 0 {
 		i++
 		w = bs[i]
@@ -152,10 +147,10 @@ func (bs BitSet) Next(m int) int {
 // Prev returns the previous element n, n < m, in the set,
 // or -1 if there is no such element.
 func (bs BitSet) Prev(m int) int {
-	l := len(bs)
-	if l == 0 || m <= 0 {
+	if len(bs) == 0 || m <= 0 {
 		return -1
 	}
+	l := len(bs)
 	lastIdx := l - 1
 	maxPossible := (lastIdx << shift) + bits.Len64(bs[lastIdx]) - 1
 	if m > maxPossible {
@@ -186,9 +181,6 @@ func (bs BitSet) Prev(m int) int {
 func (bs BitSet) Visit(do func(n int) bool) (aborted bool) {
 	for i, l := 0, len(bs); i < l; i++ {
 		w := bs[i]
-		if w == 0 {
-			continue
-		}
 		n := i << shift
 		for w != 0 {
 			b := bits.TrailingZeros64(w)
@@ -218,9 +210,9 @@ func (bs BitSet) VisitAll(do func(n int)) {
 	})
 }
 
-// bitMask returns a bit div64rem with bits set from m to n inclusive, 0 ≤ m ≤ n < bpw.
-func bitMask(m, n int) uint64 {
-	return maxw >> uint(bpw-1-(n-m)) << uint(m)
+// bitMask returns a uint64 with bits set from start to end inclusive, 0 ≤ start ≤ end < bpw.
+func bitMask(start, end int) uint64 {
+	return maxw >> uint(bpw-1-(end-start)) << uint(start)
 }
 
 // nextPow2 returns the smallest power of two p such that p > n, or math.MaxInt if overflow.
@@ -310,7 +302,7 @@ func (bs *BitSet) AddRange(m, n int) {
 		return
 	}
 	m = max(0, m)
-	n-- // now we add from m..n inclusive
+	n-- // convert to inclusive range [m, n]
 	low, high := m>>shift, n>>shift
 	if high >= len(*bs) {
 		bs.resize(high + 1)
@@ -332,7 +324,7 @@ func (bs *BitSet) DeleteRange(m, n int) {
 		return
 	}
 	m = max(0, m)
-	n-- // remove m..n inclusive
+	n-- // convert to inclusive range [m, n]
 	low, high := m>>shift, n>>shift
 	if low >= len(*bs) {
 		return
@@ -356,11 +348,11 @@ func (bs *BitSet) DeleteRange(m, n int) {
 
 // And creates a new set that consists of all elements in both s1 and s2.
 func And(s1, s2 BitSet) BitSet {
-	bsLen, otherLen := len(s1), len(s2)
-	if bsLen == 0 || otherLen == 0 {
+	s1Len, s2Len := len(s1), len(s2)
+	if s1Len == 0 || s2Len == 0 {
 		return BitSet{}
 	}
-	minLen := min(bsLen, otherLen) - 1
+	minLen := min(s1Len, s2Len) - 1
 	for minLen >= 0 && s1[minLen]&s2[minLen] == 0 {
 		minLen--
 	}
@@ -374,8 +366,31 @@ func And(s1, s2 BitSet) BitSet {
 // And keeps only bits set in both *bs and other.
 func (bs *BitSet) And(other BitSet) {
 	minLen := min(len(*bs), len(other))
-	for i := 0; i < minLen; i++ {
-		(*bs)[i] &= other[i]
+	if minLen < 8 {
+		for i := 0; i < minLen; i++ {
+			(*bs)[i] &= other[i]
+		}
+		for i := minLen; i < len(*bs); i++ {
+			(*bs)[i] = 0
+		}
+		bs.trim()
+		return
+	}
+
+	b := (*bs)[:minLen]
+	o := other[:minLen]
+	for ; len(o) > 7; b, o = b[8:], o[8:] {
+		b[0] &= o[0]
+		b[1] &= o[1]
+		b[2] &= o[2]
+		b[3] &= o[3]
+		b[4] &= o[4]
+		b[5] &= o[5]
+		b[6] &= o[6]
+		b[7] &= o[7]
+	}
+	for i := range o {
+		b[i] &= o[i]
 	}
 	for i := minLen; i < len(*bs); i++ {
 		(*bs)[i] = 0
@@ -430,8 +445,28 @@ func (bs *BitSet) Or(other BitSet) {
 	if len(other) > len(*bs) {
 		bs.resize(len(other))
 	}
-	for i := 0; i < len(other); i++ {
-		(*bs)[i] |= other[i]
+	if len(other) < 8 {
+		for i := range other {
+			(*bs)[i] |= other[i]
+		}
+		bs.trim()
+		return
+	}
+
+	b := *bs
+	o := other
+	for ; len(o) > 7; b, o = b[8:], o[8:] {
+		b[0] |= o[0]
+		b[1] |= o[1]
+		b[2] |= o[2]
+		b[3] |= o[3]
+		b[4] |= o[4]
+		b[5] |= o[5]
+		b[6] |= o[6]
+		b[7] |= o[7]
+	}
+	for i := range o {
+		b[i] |= o[i]
 	}
 	bs.trim()
 }
@@ -520,8 +555,28 @@ func AndNot(s1, s2 BitSet) BitSet {
 // AndNot removes bits that are set in other from *bs.
 func (bs *BitSet) AndNot(other BitSet) {
 	minLen := min(len(*bs), len(other))
-	for i := 0; i < minLen; i++ {
-		(*bs)[i] &^= other[i]
+	if minLen < 8 {
+		for i := 0; i < minLen; i++ {
+			(*bs)[i] &^= other[i]
+		}
+		bs.trim()
+		return
+	}
+
+	b := (*bs)[:minLen]
+	o := other[:minLen]
+	for ; len(o) > 7; b, o = b[8:], o[8:] {
+		b[0] &^= o[0]
+		b[1] &^= o[1]
+		b[2] &^= o[2]
+		b[3] &^= o[3]
+		b[4] &^= o[4]
+		b[5] &^= o[5]
+		b[6] &^= o[6]
+		b[7] &^= o[7]
+	}
+	for i := range o {
+		b[i] &^= o[i]
 	}
 	bs.trim()
 }

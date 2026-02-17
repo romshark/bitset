@@ -4,6 +4,8 @@ before:
     - go mod tidy
 snapshot:
   name_template: "{{ .Tag }}"
+builds:
+  - skip: true
 release:
   draft: false
   replace_existing_draft: true
